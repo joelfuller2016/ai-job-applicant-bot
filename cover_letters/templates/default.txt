@@ -1,0 +1,34 @@
+{{ user_name }}
+{{ user_email }}
+{{ user_phone }}
+{{ user_location }}
+
+{{ date }}
+
+{{ company_name }}
+{{ company_address|default('') }}
+
+Dear Hiring Manager,
+
+I am writing to express my interest in the {{ job_title }} position at {{ company_name }}. With {{ experience_years }} years of experience in software development and a strong background in {{ skills|join(', ') }}, I am confident in my ability to make a valuable contribution to your team.
+
+{% if job_description %}
+Based on the job description, I understand you are looking for someone with expertise in {{ job_skills|join(', ') }}. Throughout my career, I have:
+{% else %}
+Throughout my career, I have:
+{% endif %}
+
+- Developed and maintained numerous software applications using {{ skills[:3]|join(', ') }}
+- Collaborated effectively with cross-functional teams to deliver high-quality solutions
+- Continuously learned and adapted to new technologies and methodologies
+
+{% if matching_strengths %}
+My particular strengths relevant to this role include {{ matching_strengths|join(', ') }}.
+{% endif %}
+
+I am drawn to {{ company_name }} because of your reputation for {{ company_values|default('innovation and excellence') }}. I am particularly excited about the opportunity to work on {{ company_projects|default('challenging projects') }} and contribute to your continued success.
+
+Thank you for considering my application. I look forward to the opportunity to discuss how my skills and experience align with your needs. Please feel free to contact me at {{ user_phone }} or {{ user_email }} to arrange a conversation.
+
+Sincerely,
+{{ user_name }}
