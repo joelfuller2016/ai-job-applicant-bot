@@ -1,0 +1,47 @@
+{
+  "user": {
+    "name": "Your Name",
+    "email": "your.email@example.com",
+    "phone": "(123) 456-7890",
+    "location": "City, State",
+    "linkedin": "https://linkedin.com/in/yourprofile",
+    "github": "https://github.com/yourusername"
+  },
+  "job_search": {
+    "titles": [
+      "Senior Software Developer",
+      "Senior Software Engineer",
+      "Full Stack Developer",
+      "Project Manager"
+    ],
+    "remote_only": true,
+    "locations": ["Remote"],
+    "exclude_keywords": ["junior", "internship"],
+    "min_salary": 100000
+  },
+  "application": {
+    "auto_submit": false,
+    "application_limit_per_day": 10
+  },
+  "job_boards": {
+    "linkedin": {
+      "enabled": true,
+      "username": "",
+      "password": ""
+    },
+    "indeed": {
+      "enabled": true,
+      "username": "",
+      "password": ""
+    },
+    "dice": {
+      "enabled": true
+    },
+    "remoteok": {
+      "enabled": true
+    },
+    "angellist": {
+      "enabled": false
+    }
+  }
+}
