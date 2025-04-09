@@ -1,0 +1,37 @@
+{{ user_name }}
+{{ user_email }}
+{{ user_phone }}
+{{ user_location }}
+
+{{ date }}
+
+{{ company_name }}
+{{ company_address|default('') }}
+
+Dear Hiring Manager,
+
+RE: Application for {{ job_title }} Position
+
+I am writing to express my strong interest in the {{ job_title }} position at {{ company_name }} as advertised. With {{ experience_years }} years of proven experience in software engineering and technical leadership, I bring a robust skill set that aligns well with your requirements.
+
+My technical expertise includes:
+• Proficient in {{ skills[:5]|join(', ') }}
+• Extensive experience with software architecture and system design
+• Strong knowledge of best practices in code quality, testing, and deployment
+• Experience with agile methodologies and collaborative development
+
+{% if matching_strengths %}
+Based on your job description, my specific qualifications that match your needs include {{ matching_strengths|join(', ') }}.
+{% endif %}
+
+Throughout my career, I have consistently delivered high-quality software solutions while maintaining a focus on scalability, performance, and maintainability. I excel in collaborative environments and enjoy mentoring junior developers to help teams achieve their full potential.
+
+What particularly draws me to {{ company_name }} is {{ company_values|default('your innovative approach and commitment to solving important problems') }}. I am eager to contribute my skills and experience to help {{ company_name }} continue to {{ company_projects|default('develop cutting-edge solutions') }}.
+
+I would welcome the opportunity to discuss how my background and skills would be an asset to your team. Please feel free to contact me at {{ user_phone }} or {{ user_email }} to arrange a conversation.
+
+Thank you for considering my application.
+
+Sincerely,
+
+{{ user_name }}
