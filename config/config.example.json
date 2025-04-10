@@ -1,47 +1,84 @@
 {
-  "user": {
-    "name": "Your Name",
-    "email": "your.email@example.com",
-    "phone": "(123) 456-7890",
-    "location": "City, State",
-    "linkedin": "https://linkedin.com/in/yourprofile",
-    "github": "https://github.com/yourusername"
+  "name": "AI Job Applicant Bot",
+  "version": "2.0.0",
+  
+  "browser": {
+    "headless": false,
+    "slow_mo": 50,
+    "screenshot_dir": "logs/screenshots",
+    "profiles_dir": "data/browser_profiles",
+    "rotate_profiles": true,
+    "max_uses_per_profile": 5,
+    "min_typing_delay": 30,
+    "max_typing_delay": 100,
+    "anti_detection": {
+      "enabled": true,
+      "randomize_user_agent": true,
+      "fingerprint_protection": true,
+      "disable_webrtc": true,
+      "disable_automation_flags": true,
+      "stealth_mode": true
+    }
   },
+  
   "job_search": {
     "titles": [
       "Senior Software Developer",
       "Senior Software Engineer",
-      "Full Stack Developer",
-      "Project Manager"
+      "Full Stack Developer"
     ],
+    "location": "Remote",
     "remote_only": true,
-    "locations": ["Remote"],
     "exclude_keywords": ["junior", "internship"],
-    "min_salary": 100000
+    "required_skills": ["python", "javascript", "aws"],
+    "experience_years": 5,
+    "max_days_old": 30
   },
-  "application": {
-    "auto_submit": false,
-    "application_limit_per_day": 10
-  },
+  
   "job_boards": {
     "linkedin": {
       "enabled": true,
-      "username": "",
-      "password": ""
+      "url": "https://www.linkedin.com/jobs/"
     },
     "indeed": {
       "enabled": true,
-      "username": "",
-      "password": ""
+      "url": "https://www.indeed.com/"
     },
     "dice": {
-      "enabled": true
+      "enabled": true,
+      "url": "https://www.dice.com/"
     },
     "remoteok": {
-      "enabled": true
-    },
-    "angellist": {
-      "enabled": false
+      "enabled": true,
+      "url": "https://remoteok.com/"
     }
+  },
+  
+  "ai": {
+    "llm_model": "gpt-4-turbo",
+    "vision_model": "gpt-4-vision-preview",
+    "temperature": 0.2,
+    "max_tokens": 4096,
+    "match_threshold": 70
+  },
+  
+  "application": {
+    "daily_application_limit": 10,
+    "auto_submit": false,
+    "human_approval_required": true,
+    "application_cooldown_seconds": 3600
+  },
+  
+  "resume_path": "resume/data/resume.json",
+  "cover_letter_dir": "cover_letters/generated",
+  "data_dir": "data",
+  "logs_dir": "logs",
+  
+  "logging": {
+    "level": "INFO",
+    "file_log_level": "DEBUG",
+    "console_log_level": "INFO",
+    "rotation": "daily",
+    "max_log_files": 30
   }
 }
