@@ -19,11 +19,31 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual Environment
 venv/
 env/
 ENV/
+
+# Local configuration
+.env
+config/config.json
+config/user_profile.json
+
+# Data files
+data/jobs_database.json
+data/browser_profiles/
+resume/data/*.pdf
+resume/data/*.docx
+resume/data/*.json
+cover_letters/generated/*
+!cover_letters/generated/.gitkeep
+
+# Logs and screenshots
+logs/*.log
+logs/screenshots/*.png
+logs/*.json
 
 # IDE files
 .idea/
@@ -31,48 +51,16 @@ ENV/
 *.swp
 *.swo
 
-# Log files
-logs/*.log
-logs/*.csv
-logs/*.json
-
-# Config files with sensitive info
-config/config.json
-
-# Resume and cover letter files
-resume/data/*.pdf
-resume/data/*.docx
-resume/data/*.txt
-cover_letters/generated/*.pdf
-cover_letters/generated/*.docx
-cover_letters/generated/*.txt
-
-# Playwright browser data
-.playwright-browser-data/
-
-# Application state files
-.application_state.json
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# dotenv
-.env
-
-# Node modules (if using Puppeteer)
-node_modules/
-package-lock.json
-
-# Debug files
-*.log
-*.pot
-*.pyc
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Mac system files
+# OS specific
 .DS_Store
+Thumbs.db
+
+# Playwright/browser-use specific
+.browser-use/
+.auth/
+playwright-report/
+test-results/
+
+# Cache
+.cache/
+.pytest_cache/
