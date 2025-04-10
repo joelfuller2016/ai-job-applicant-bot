@@ -1,55 +1,48 @@
 #!/usr/bin/env python3
 
 """
-AI Job Orchestrator
+AI Orchestrator
 
-Main orchestrator for the job search and application process.
-Coordinates between browser automation, job analysis, resume parsing, and cover letter generation.
+This module orchestrates the entire job search and application process using AI.
+It coordinates between the browser-use agent, job analyzer, and other components.
 """
 
 import os
-import json
-import logging
-import asyncio
 import time
-from typing import Dict, Any, List, Optional, Union
-from datetime import datetime, timedelta
+import json
+import asyncio
+import logging
 from pathlib import Path
+from typing import Dict, Any, List, Optional, Union
+from datetime import datetime
 
-# Import application components
+# Import local modules
 from automation.browseruse_agent import BrowserUseAgent
 from automation.job_analyzer import JobAnalyzer
 from cover_letters.generator import CoverLetterGenerator
-from resume.ai_parser import AIResumeParser
-
-# Import utilities
+from resume.parser import ResumeParser
 from utils.advanced_logging import get_logger, ActivityLogger
-from utils.helpers import save_json_file, load_json_file, generate_id, create_directory_if_not_exists
+from utils.helpers import load_json_file, save_json_file, generate_id, create_directory_if_not_exists
 
-# Configure logger
+# Set up logger
 logger = get_logger("ai_orchestrator")
 
 class AIJobOrchestrator:
     """
-    Main orchestrator for the AI job search and application process.
-    Manages the entire workflow from job search to application.
+    AI Orchestrator for job search and application
+    
+    This class coordinates the entire job search and application process,
+    using AI to analyze jobs, generate cover letters, and apply to positions.
     """
     
     def __init__(self, config: Dict[str, Any]):
         """
-        Initialize the orchestrator
+        Initialize the AI Orchestrator
         
         Args:
             config: Configuration dictionary
         """
         self.config = config
-        
-        # Create necessary directories
-        self.data_dir = Path(config.get("data_dir", "data"))
-        create_directory_if_not_exists(str(self.data_dir))
-        
-        # Job database path
-        self.jobs_db_path = self.data_dir / "jobs_database.json"
         
         # Component instances
         self.browser_agent = None
@@ -57,242 +50,352 @@ class AIJobOrchestrator:
         self.cover_letter_generator = None
         self.resume_parser = None
         
-        # Session tracking
-        self.session_id = generate_id("session_")
-        
-        # Application settings
-        self.application_settings = config.get("application", {})
-        self.daily_application_limit = self.application_settings.get("daily_application_limit", 10)
-        self.match_threshold = config.get("ai", {}).get("match_threshold", 70)
+        # Job database
+        self.data_dir = Path(config.get('data_dir', 'data'))
+        self.jobs_db_path = self.data_dir / 'jobs_database.json'
+        self.jobs_db = self._load_jobs_database()
         
         # Activity logger
-        self.activity_logger = ActivityLogger(logger, "user")
+        self.activity_logger = ActivityLogger(logger)
+        
+        # Session ID
+        self.session_id = generate_id("session_")
     
     async def initialize(self):
-        """Initialize the orchestrator components"""
+        """Initialize all components"""
         try:
-            logger.info("Initializing AI Job Orchestrator...")
+            # Create data directory if it doesn't exist
+            create_directory_if_not_exists(str(self.data_dir))
             
             # Initialize browser agent
             self.browser_agent = BrowserUseAgent(self.config)
             await self.browser_agent.initialize()
-            logger.info("Browser agent initialized")
             
             # Initialize job analyzer
             self.job_analyzer = JobAnalyzer(self.config)
             await self.job_analyzer.initialize()
-            logger.info("Job analyzer initialized")
             
             # Initialize cover letter generator
             self.cover_letter_generator = CoverLetterGenerator(self.config)
             await self.cover_letter_generator.initialize()
-            logger.info("Cover letter generator initialized")
             
             # Initialize resume parser
-            self.resume_parser = AIResumeParser(self.config)
-            await self.resume_parser.initialize()
-            logger.info("Resume parser initialized")
+            self.resume_parser = ResumeParser(self.config)
             
-            logger.info("AI Job Orchestrator initialized successfully")
-            
+            logger.info("AI Orchestrator initialized successfully")
             return self
             
         except Exception as e:
-            logger.error(f"Error initializing AI Job Orchestrator: {e}")
+            logger.error(f"Error initializing AI Orchestrator: {e}")
             raise
     
-    async def search_for_jobs(self, search_params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _load_jobs_database(self) -> Dict[str, Any]:
+        """Load jobs database from disk"""
+        if not self.jobs_db_path.exists():
+            return {
+                "jobs": [],
+                "applications": [],
+                "statistics": {
+                    "total_jobs_found": 0,
+                    "total_applications": 0,
+                    "successful_applications": 0
+                },
+                "last_updated": datetime.now().isoformat()
+            }
+        
+        try:
+            with open(self.jobs_db_path, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading jobs database: {e}")
+            return {
+                "jobs": [],
+                "applications": [],
+                "statistics": {
+                    "total_jobs_found": 0,
+                    "total_applications": 0,
+                    "successful_applications": 0
+                },
+                "last_updated": datetime.now().isoformat()
+            }
+    
+    def _save_jobs_database(self):
+        """Save jobs database to disk"""
+        try:
+            # Update last updated timestamp
+            self.jobs_db["last_updated"] = datetime.now().isoformat()
+            
+            with open(self.jobs_db_path, 'w') as f:
+                json.dump(self.jobs_db, f, indent=2)
+            
+            logger.info(f"Jobs database saved successfully: {len(self.jobs_db['jobs'])} jobs, {len(self.jobs_db['applications'])} applications")
+            
+        except Exception as e:
+            logger.error(f"Error saving jobs database: {e}")
+    
+    async def search_jobs(self, job_board: str, search_params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Search for jobs across multiple job boards
+        Search for jobs on a specific job board
         
         Args:
-            search_params: Search parameters
+            job_board: Name of the job board (linkedin, indeed, etc.)
+            search_params: Search parameters (keywords, location, etc.)
             
         Returns:
             List of job dictionaries
         """
         try:
-            logger.info(f"Searching for jobs with parameters: {search_params}")
+            logger.info(f"Searching for jobs on {job_board} with parameters: {search_params}")
             
-            # Load job database
-            jobs_db = self._load_jobs_database()
+            # Use browser agent to search for jobs
+            result = await self.browser_agent.search_jobs(job_board, search_params)
             
-            # Get enabled job boards
-            job_boards = self.config.get("job_boards", {})
-            enabled_boards = [board for board, settings in job_boards.items() if settings.get("enabled", False)]
-            
-            if not enabled_boards:
-                logger.warning("No job boards enabled in configuration")
+            if not result.get("success", False):
+                logger.error(f"Error searching for jobs on {job_board}: {result.get('error', 'Unknown error')}")
                 return []
             
-            logger.info(f"Searching on enabled job boards: {', '.join(enabled_boards)}")
+            # Extract jobs from result
+            new_jobs = result.get("result", [])
             
-            all_jobs = []
+            if not new_jobs:
+                logger.info(f"No jobs found on {job_board}")
+                return []
             
-            # Search each job board
-            for job_board in enabled_boards:
-                try:
-                    # Log job search
-                    self.activity_logger.log_job_search(
-                        job_board, 
-                        search_params.get("keywords", ""),
-                        search_params.get("location", "Remote"),
-                        0  # Will update with actual count later
-                    )
-                    
-                    # Search for jobs
-                    result = await self.browser_agent.search_jobs(job_board, search_params)
-                    
-                    if result.get("success", False):
-                        # Extract jobs from result
-                        jobs = result.get("result", {}).get("jobs", [])
-                        
-                        if jobs:
-                            logger.info(f"Found {len(jobs)} jobs on {job_board}")
-                            
-                            # Update activity log with actual count
-                            self.activity_logger.log_job_search(
-                                job_board, 
-                                search_params.get("keywords", ""),
-                                search_params.get("location", "Remote"),
-                                len(jobs)
-                            )
-                            
-                            # Add job board info
-                            for job in jobs:
-                                job["job_board"] = job_board
-                                job["search_date"] = datetime.now().isoformat()
-                                job["search_params"] = search_params
-                                
-                                # Generate ID if not present
-                                if "id" not in job:
-                                    job["id"] = generate_id(f"{job_board}_")
-                                
-                                # Set initial status
-                                job["status"] = "new"
-                                
-                                # Add to all jobs
-                                all_jobs.append(job)
-                        else:
-                            logger.info(f"No jobs found on {job_board}")
-                    else:
-                        logger.error(f"Error searching {job_board}: {result.get('error', 'Unknown error')}")
+            logger.info(f"Found {len(new_jobs)} jobs on {job_board}")
+            
+            # Add new jobs to database
+            for job in new_jobs:
+                # Generate a unique ID if not present
+                if "id" not in job:
+                    job["id"] = generate_id(f"{job_board}_")
                 
-                except Exception as e:
-                    logger.error(f"Error searching {job_board}: {e}")
+                # Add metadata
+                job["job_board"] = job_board
+                job["found_date"] = datetime.now().isoformat()
+                job["status"] = "new"
+                job["search_params"] = search_params
                 
-                # Add delay between job boards to avoid detection
-                if job_board != enabled_boards[-1]:  # Skip delay after last board
-                    delay = self.config.get("job_search", {}).get("delay_between_boards", 5)
-                    logger.info(f"Waiting {delay} seconds before searching next job board...")
-                    await asyncio.sleep(delay)
-            
-            # Update jobs database with new jobs
-            jobs_updated = 0
-            
-            for job in all_jobs:
-                job_id = job.get("id")
+                # Check if job already exists in database
+                existing_job = None
+                for db_job in self.jobs_db["jobs"]:
+                    if db_job.get("url") == job.get("url"):
+                        existing_job = db_job
+                        break
                 
-                # Check if job already exists
-                if job_id not in jobs_db["jobs"]:
-                    jobs_db["jobs"][job_id] = job
-                    jobs_updated += 1
-                # If job exists but current status is 'new', update with new job data
-                elif jobs_db["jobs"][job_id].get("status") == "new":
-                    jobs_db["jobs"][job_id].update(job)
-                    jobs_updated += 1
+                if existing_job:
+                    # Update existing job
+                    existing_job.update(job)
+                else:
+                    # Add new job
+                    self.jobs_db["jobs"].append(job)
+                    self.jobs_db["statistics"]["total_jobs_found"] += 1
             
-            logger.info(f"Added/updated {jobs_updated} jobs in database")
+            # Save database
+            self._save_jobs_database()
             
-            # Save updated database
-            self._save_jobs_database(jobs_db)
+            # Log activity
+            self.activity_logger.log_job_search(
+                job_board,
+                search_params.get("keywords", ""),
+                search_params.get("location", ""),
+                len(new_jobs)
+            )
             
-            return all_jobs
+            return new_jobs
             
         except Exception as e:
-            logger.error(f"Error searching for jobs: {e}")
+            logger.error(f"Error searching for jobs on {job_board}: {e}")
             return []
     
-    async def analyze_jobs(self, resume_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def search_all_job_boards(self, search_params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Analyze jobs in the database
+        Search for jobs across all enabled job boards
         
         Args:
-            resume_data: Resume data
+            search_params: Search parameters (keywords, location, etc.)
+            
+        Returns:
+            List of job dictionaries
+        """
+        all_jobs = []
+        job_boards = self.config.get('job_boards', {})
+        
+        for job_board, settings in job_boards.items():
+            if settings.get('enabled', False):
+                try:
+                    # Search this job board
+                    jobs = await self.search_jobs(job_board, search_params)
+                    all_jobs.extend(jobs)
+                    
+                    # Add delay between job boards to avoid detection
+                    if job_board != list(job_boards.keys())[-1]:  # Skip delay after last job board
+                        delay = random.randint(5, 15)
+                        logger.info(f"Waiting {delay} seconds before searching next job board...")
+                        await asyncio.sleep(delay)
+                        
+                except Exception as e:
+                    logger.error(f"Error searching {job_board}: {e}")
+        
+        return all_jobs
+    
+    async def analyze_job(self, job_id: str, resume_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analyze a job and compute match score
+        
+        Args:
+            job_id: Job ID
+            resume_data: Resume data as a dictionary
+            
+        Returns:
+            Job with analysis
+        """
+        try:
+            # Find job in database
+            job = None
+            for j in self.jobs_db["jobs"]:
+                if j.get("id") == job_id:
+                    job = j
+                    break
+            
+            if not job:
+                logger.error(f"Job with ID {job_id} not found")
+                return None
+            
+            logger.info(f"Analyzing job: {job.get('title')} at {job.get('company')}")
+            
+            # Check if job has already been analyzed
+            if job.get("status") == "analyzed" and "analysis" in job:
+                logger.info(f"Job {job_id} has already been analyzed")
+                return job
+            
+            # Extract job description
+            job_description = job.get("description", "")
+            
+            if not job_description:
+                logger.warning(f"Job {job_id} has no description, cannot analyze")
+                return job
+            
+            # Analyze job
+            analysis = await self.job_analyzer.analyze_job(job_description, resume_data)
+            
+            # Update job with analysis
+            job["analysis"] = analysis
+            job["match_score"] = analysis.get("match_score", 0)
+            job["status"] = "analyzed"
+            
+            # Save database
+            self._save_jobs_database()
+            
+            # Log activity
+            self.activity_logger.log_job_analysis(
+                job_id,
+                job.get("title", ""),
+                analysis.get("match_score", 0)
+            )
+            
+            return job
+            
+        except Exception as e:
+            logger.error(f"Error analyzing job {job_id}: {e}")
+            return None
+    
+    async def analyze_all_new_jobs(self, resume_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Analyze all new jobs in the database
+        
+        Args:
+            resume_data: Resume data as a dictionary
             
         Returns:
             List of analyzed jobs
         """
+        analyzed_jobs = []
+        
+        # Get all new jobs
+        new_jobs = [j for j in self.jobs_db["jobs"] if j.get("status") == "new"]
+        
+        if not new_jobs:
+            logger.info("No new jobs to analyze")
+            return []
+        
+        logger.info(f"Analyzing {len(new_jobs)} new jobs")
+        
+        for job in new_jobs:
+            try:
+                # Analyze job
+                analyzed_job = await self.analyze_job(job.get("id"), resume_data)
+                
+                if analyzed_job:
+                    analyzed_jobs.append(analyzed_job)
+                
+                # Add small delay between analyses to avoid rate limiting
+                await asyncio.sleep(1)
+                
+            except Exception as e:
+                logger.error(f"Error analyzing job {job.get('id')}: {e}")
+        
+        logger.info(f"Analyzed {len(analyzed_jobs)} jobs")
+        return analyzed_jobs
+    
+    async def generate_cover_letter(self, job_id: str, resume_data: Dict[str, Any]) -> str:
+        """
+        Generate a cover letter for a job
+        
+        Args:
+            job_id: Job ID
+            resume_data: Resume data as a dictionary
+            
+        Returns:
+            Path to generated cover letter
+        """
         try:
-            logger.info("Analyzing jobs in the database...")
+            # Find job in database
+            job = None
+            for j in self.jobs_db["jobs"]:
+                if j.get("id") == job_id:
+                    job = j
+                    break
             
-            # Load job database
-            jobs_db = self._load_jobs_database()
+            if not job:
+                logger.error(f"Job with ID {job_id} not found")
+                return None
             
-            # Get jobs with status 'new'
-            new_jobs = {job_id: job for job_id, job in jobs_db["jobs"].items() if job.get("status") == "new"}
+            logger.info(f"Generating cover letter for job: {job.get('title')} at {job.get('company')}")
             
-            if not new_jobs:
-                logger.info("No new jobs to analyze")
-                return []
+            # Analyze job if not already analyzed
+            if job.get("status") != "analyzed" or "analysis" not in job:
+                job = await self.analyze_job(job_id, resume_data)
             
-            logger.info(f"Found {len(new_jobs)} new jobs to analyze")
+            if not job:
+                logger.error(f"Could not analyze job {job_id}")
+                return None
             
-            analyzed_jobs = []
+            # Generate cover letter
+            cover_letter_path = await self.cover_letter_generator.generate_cover_letter(job, resume_data)
             
-            # Analyze each job
-            for job_id, job in new_jobs.items():
-                try:
-                    # Get job description
-                    job_description = job.get("description", "")
-                    
-                    if not job_description:
-                        logger.warning(f"Job {job_id} has no description, skipping analysis")
-                        continue
-                    
-                    # Log job analysis
-                    logger.info(f"Analyzing job {job_id}: {job.get('title')} at {job.get('company')}")
-                    
-                    # Analyze job
-                    analysis = await self.job_analyzer.analyze_job(job_description, resume_data)
-                    
-                    # Get match score
-                    match_score = analysis.get("match_score", 0)
-                    
-                    # Log match score
-                    self.activity_logger.log_job_analysis(job_id, job.get("title", ""), match_score)
-                    
-                    # Update job with analysis
-                    job["analysis"] = analysis
-                    job["match_score"] = match_score
-                    job["status"] = "analyzed"
-                    job["analysis_date"] = datetime.now().isoformat()
-                    
-                    # Add to analyzed jobs
-                    analyzed_jobs.append(job)
-                    
-                    # Update in database
-                    jobs_db["jobs"][job_id] = job
-                    
-                    logger.info(f"Job {job_id} analyzed with match score: {match_score}")
-                    
-                except Exception as e:
-                    logger.error(f"Error analyzing job {job_id}: {e}")
+            # Update job with cover letter path
+            job["cover_letter_path"] = str(cover_letter_path)
+            job["status"] = "cover_letter_generated"
             
-            # Save updated database
-            self._save_jobs_database(jobs_db)
+            # Save database
+            self._save_jobs_database()
             
-            logger.info(f"Analyzed {len(analyzed_jobs)} jobs")
+            # Log activity
+            self.activity_logger.log_cover_letter_generation(
+                job_id,
+                job.get("title", ""),
+                str(cover_letter_path)
+            )
             
-            return analyzed_jobs
+            return cover_letter_path
             
         except Exception as e:
-            logger.error(f"Error analyzing jobs: {e}")
-            return []
+            logger.error(f"Error generating cover letter for job {job_id}: {e}")
+            return None
     
     async def apply_to_job(self, job_id: str, resume_path: str) -> Dict[str, Any]:
         """
-        Apply to a specific job
+        Apply to a job
         
         Args:
             job_id: Job ID
@@ -302,95 +405,84 @@ class AIJobOrchestrator:
             Application result
         """
         try:
-            logger.info(f"Applying to job {job_id}...")
+            # Find job in database
+            job = None
+            for j in self.jobs_db["jobs"]:
+                if j.get("id") == job_id:
+                    job = j
+                    break
             
-            # Load job database
-            jobs_db = self._load_jobs_database()
-            
-            # Check if job exists
-            if job_id not in jobs_db["jobs"]:
-                logger.error(f"Job {job_id} not found in database")
+            if not job:
+                logger.error(f"Job with ID {job_id} not found")
                 return {
                     "success": False,
-                    "error": f"Job {job_id} not found in database"
+                    "error": f"Job with ID {job_id} not found"
                 }
             
-            # Get job data
-            job = jobs_db["jobs"][job_id]
+            logger.info(f"Applying to job: {job.get('title')} at {job.get('company')}")
             
-            # Check if job already applied
-            if job.get("status") == "applied":
-                logger.warning(f"Job {job_id} already applied")
-                return {
-                    "success": False,
-                    "error": f"Job {job_id} already applied"
-                }
+            # Check if job already has a cover letter
+            cover_letter_path = job.get("cover_letter_path")
             
-            # Generate cover letter
-            cover_letter_path = None
-            
-            try:
+            if not cover_letter_path:
+                # Load resume data to generate cover letter
+                resume_data = {}
+                if resume_path.endswith('.json'):
+                    resume_data = load_json_file(resume_path)
+                else:
+                    # Parse resume if not in JSON format
+                    resume_data = self.resume_parser.parse_resume(resume_path)
+                
                 # Generate cover letter
-                cover_letter_path = await self.cover_letter_generator.generate_cover_letter(job, resume_path)
-                
-                # Log cover letter generation
-                self.activity_logger.log_cover_letter_generation(job_id, job.get("title", ""), str(cover_letter_path))
-                
-                logger.info(f"Generated cover letter for job {job_id}: {cover_letter_path}")
-                
-            except Exception as e:
-                logger.error(f"Error generating cover letter for job {job_id}: {e}")
+                cover_letter_path = await self.generate_cover_letter(job_id, resume_data)
+            
+            if not cover_letter_path:
+                logger.warning(f"Could not generate cover letter for job {job_id}, applying without cover letter")
             
             # Apply to job
-            job_url = job.get("url", "")
+            result = await self.browser_agent.apply_to_job(
+                job.get("url"),
+                resume_path,
+                cover_letter_path
+            )
             
-            if not job_url:
-                logger.error(f"Job {job_id} has no URL")
-                return {
-                    "success": False,
-                    "error": f"Job {job_id} has no URL"
-                }
-            
-            # Apply to job
-            result = await self.browser_agent.apply_to_job(job_url, resume_path, cover_letter_path)
-            
-            # Log application
-            self.activity_logger.log_job_application(job_id, job.get("title", ""), job.get("company", ""), result)
-            
-            # Update job status
+            # Update job status based on result
             if result.get("success", False):
                 job["status"] = "applied"
                 job["application_date"] = datetime.now().isoformat()
                 job["application_result"] = result
+                
+                # Add to applications list
+                application = {
+                    "job_id": job_id,
+                    "date": datetime.now().isoformat(),
+                    "resume_path": resume_path,
+                    "cover_letter_path": cover_letter_path,
+                    "result": result,
+                    "success": result.get("success", False)
+                }
+                
+                self.jobs_db["applications"].append(application)
+                self.jobs_db["statistics"]["total_applications"] += 1
+                
+                if result.get("success", False):
+                    self.jobs_db["statistics"]["successful_applications"] += 1
             else:
                 job["status"] = "application_failed"
                 job["application_error"] = result.get("error", "Unknown error")
             
-            # Update in database
-            jobs_db["jobs"][job_id] = job
+            # Save database
+            self._save_jobs_database()
             
-            # Add to applications list
-            application_id = generate_id("app_")
-            jobs_db["applications"][application_id] = {
-                "job_id": job_id,
-                "application_id": application_id,
-                "date": datetime.now().isoformat(),
-                "resume_path": str(resume_path),
-                "cover_letter_path": str(cover_letter_path) if cover_letter_path else None,
-                "result": result
-            }
+            # Log activity
+            self.activity_logger.log_job_application(
+                job_id,
+                job.get("title", ""),
+                job.get("company", ""),
+                result
+            )
             
-            # Save updated database
-            self._save_jobs_database(jobs_db)
-            
-            logger.info(f"Applied to job {job_id} with result: {result.get('success', False)}")
-            
-            return {
-                "success": result.get("success", False),
-                "job": job,
-                "application_id": application_id,
-                "result": result
-            }
+            return result
             
         except Exception as e:
             logger.error(f"Error applying to job {job_id}: {e}")
@@ -406,182 +498,181 @@ class AIJobOrchestrator:
         Args:
             search_params: Search parameters
             resume_path: Path to resume file
-            resume_data: Resume data
+            resume_data: Resume data as a dictionary
             
         Returns:
-            Cycle results
+            Result statistics
         """
         try:
-            cycle_start_time = time.time()
-            logger.info("Starting job search cycle...")
+            logger.info(f"Starting job search cycle with parameters: {search_params}")
             
             # Search for jobs
-            jobs = await self.search_for_jobs(search_params)
+            all_jobs = await self.search_all_job_boards(search_params)
             
-            # Analyze jobs
-            analyzed_jobs = await self.analyze_jobs(resume_data)
+            if not all_jobs:
+                logger.info("No jobs found during search")
+                return {
+                    "jobs_found": 0,
+                    "jobs_analyzed": 0,
+                    "matching_jobs": 0,
+                    "applications_attempted": 0,
+                    "applications_successful": 0
+                }
             
-            # Filter jobs by match score
-            matching_jobs = [job for job in analyzed_jobs if job.get("match_score", 0) >= self.match_threshold]
+            logger.info(f"Found {len(all_jobs)} jobs")
             
-            # Sort by match score (highest first)
-            matching_jobs.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+            # Analyze all new jobs
+            analyzed_jobs = await self.analyze_all_new_jobs(resume_data)
             
-            logger.info(f"Found {len(matching_jobs)} matching jobs above threshold ({self.match_threshold})")
+            logger.info(f"Analyzed {len(analyzed_jobs)} jobs")
             
-            # Check daily application limit
-            today = datetime.now().date()
+            # Filter for matching jobs
+            match_threshold = self.config.get('ai', {}).get('match_threshold', 70)
+            matching_jobs = []
             
-            # Load job database
-            jobs_db = self._load_jobs_database()
+            for job in analyzed_jobs:
+                if job.get("match_score", 0) >= match_threshold:
+                    matching_jobs.append(job)
             
-            # Count applications today
+            logger.info(f"Found {len(matching_jobs)} matching jobs with score >= {match_threshold}")
+            
+            # Sort matching jobs by score
+            matching_jobs.sort(key=lambda j: j.get("match_score", 0), reverse=True)
+            
+            # Apply to matching jobs (limited by daily limit)
+            daily_limit = self.config.get('application', {}).get('daily_application_limit', 10)
+            
+            # Check how many applications we've made today
+            today = datetime.now().strftime("%Y-%m-%d")
             applications_today = 0
             
-            for app_id, app in jobs_db["applications"].items():
-                app_date = datetime.fromisoformat(app.get("date", "2000-01-01")).date()
+            for app in self.jobs_db["applications"]:
+                app_date = app.get("date", "").split("T")[0]
                 if app_date == today:
                     applications_today += 1
             
-            logger.info(f"Applications today: {applications_today}/{self.daily_application_limit}")
+            logger.info(f"Applications made today: {applications_today}/{daily_limit}")
             
-            # Calculate remaining applications
-            remaining_applications = max(0, self.daily_application_limit - applications_today)
+            # Calculate how many more applications we can make
+            applications_left = daily_limit - applications_today
+            applications_attempted = 0
+            applications_successful = 0
             
-            # Apply to matching jobs
-            applied_jobs = []
+            if applications_left <= 0:
+                logger.info("Daily application limit reached")
+            else:
+                # Apply to top matching jobs
+                for job in matching_jobs[:applications_left]:
+                    try:
+                        logger.info(f"Applying to job: {job.get('title')} at {job.get('company')} (Score: {job.get('match_score')})")
+                        
+                        # Apply to job
+                        result = await self.apply_to_job(job.get("id"), resume_path)
+                        applications_attempted += 1
+                        
+                        if result.get("success", False):
+                            applications_successful += 1
+                        
+                        # Add delay between applications
+                        cooldown = self.config.get('application', {}).get('application_cooldown_seconds', 3600)
+                        if cooldown > 0 and job != matching_jobs[:applications_left][-1]:  # Skip delay after last job
+                            logger.info(f"Waiting {cooldown} seconds before next application...")
+                            await asyncio.sleep(cooldown)
+                            
+                    except Exception as e:
+                        logger.error(f"Error applying to job {job.get('id')}: {e}")
             
-            for job in matching_jobs[:remaining_applications]:
-                try:
-                    # Apply to job
-                    result = await self.apply_to_job(job["id"], resume_path)
-                    
-                    if result.get("success", False):
-                        applied_jobs.append(result)
-                    
-                    # Add delay between applications
-                    if len(applied_jobs) < remaining_applications and len(applied_jobs) < len(matching_jobs):
-                        delay = self.application_settings.get("application_cooldown_seconds", 3600)
-                        logger.info(f"Waiting {delay} seconds before next application...")
-                        await asyncio.sleep(delay)
-                    
-                except Exception as e:
-                    logger.error(f"Error applying to job {job.get('id')}: {e}")
-            
-            # Calculate cycle duration
-            cycle_end_time = time.time()
-            cycle_duration = cycle_end_time - cycle_start_time
-            
-            logger.info(f"Job search cycle completed in {cycle_duration:.2f} seconds")
-            logger.info(f"Jobs found: {len(jobs)}, analyzed: {len(analyzed_jobs)}, matched: {len(matching_jobs)}, applied: {len(applied_jobs)}")
-            
+            # Return statistics
             return {
-                "success": True,
-                "jobs_found": len(jobs),
+                "jobs_found": len(all_jobs),
                 "jobs_analyzed": len(analyzed_jobs),
                 "matching_jobs": len(matching_jobs),
-                "jobs_applied": len(applied_jobs),
-                "duration": cycle_duration,
-                "date": datetime.now().isoformat(),
-                "search_params": search_params
+                "applications_attempted": applications_attempted,
+                "applications_successful": applications_successful
             }
             
         except Exception as e:
             logger.error(f"Error running job search cycle: {e}")
             return {
-                "success": False,
-                "error": str(e)
+                "error": str(e),
+                "jobs_found": 0,
+                "jobs_analyzed": 0,
+                "matching_jobs": 0,
+                "applications_attempted": 0,
+                "applications_successful": 0
             }
     
-    def _load_jobs_database(self) -> Dict[str, Any]:
-        """Load jobs database from disk"""
-        if self.jobs_db_path.exists():
-            try:
-                with open(self.jobs_db_path, 'r') as f:
-                    return json.load(f)
-            except Exception as e:
-                logger.error(f"Error loading jobs database: {e}")
-        
-        # Return empty database if file doesn't exist or error occurred
-        return {
-            "jobs": {},
-            "applications": {}
-        }
-    
-    def _save_jobs_database(self, jobs_db: Dict[str, Any]) -> bool:
-        """Save jobs database to disk"""
-        try:
-            with open(self.jobs_db_path, 'w') as f:
-                json.dump(jobs_db, f, indent=2)
-            return True
-        except Exception as e:
-            logger.error(f"Error saving jobs database: {e}")
-            return False
-    
-    def get_all_jobs(self) -> List[Dict[str, Any]]:
-        """Get all jobs from the database"""
-        jobs_db = self._load_jobs_database()
-        return list(jobs_db["jobs"].values())
-    
     def get_job_by_id(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Get a specific job by ID"""
-        jobs_db = self._load_jobs_database()
-        return jobs_db["jobs"].get(job_id)
-    
-    def get_jobs_by_status(self, status: str) -> List[Dict[str, Any]]:
-        """Get jobs with a specific status"""
-        jobs_db = self._load_jobs_database()
-        return [job for job in jobs_db["jobs"].values() if job.get("status") == status]
-    
-    def get_all_applications(self) -> List[Dict[str, Any]]:
-        """Get all applications from the database"""
-        jobs_db = self._load_jobs_database()
-        return list(jobs_db["applications"].values())
-    
-    def get_application_by_id(self, application_id: str) -> Optional[Dict[str, Any]]:
-        """Get a specific application by ID"""
-        jobs_db = self._load_jobs_database()
-        return jobs_db["applications"].get(application_id)
-    
-    def get_applications_for_job(self, job_id: str) -> List[Dict[str, Any]]:
-        """Get all applications for a specific job"""
-        jobs_db = self._load_jobs_database()
-        return [app for app in jobs_db["applications"].values() if app.get("job_id") == job_id]
-    
-    def update_job_status(self, job_id: str, status: str, notes: Optional[str] = None) -> bool:
-        """Update the status of a job"""
-        jobs_db = self._load_jobs_database()
-        
-        if job_id in jobs_db["jobs"]:
-            jobs_db["jobs"][job_id]["status"] = status
-            
-            if notes:
-                jobs_db["jobs"][job_id]["notes"] = notes
-            
-            self._save_jobs_database(jobs_db)
-            return True
-        
-        return False
-    
-    async def parse_resume(self, resume_file_path: str) -> Dict[str, Any]:
         """
-        Parse a resume file into structured data
+        Get a job by ID
         
         Args:
-            resume_file_path: Path to resume file
+            job_id: Job ID
             
         Returns:
-            Parsed resume data
+            Job dictionary or None if not found
         """
-        if not self.resume_parser:
-            logger.error("Resume parser not initialized")
-            return {}
+        for job in self.jobs_db["jobs"]:
+            if job.get("id") == job_id:
+                return job
         
-        try:
-            return await self.resume_parser.parse_resume(resume_file_path)
-        except Exception as e:
-            logger.error(f"Error parsing resume: {e}")
-            return {}
+        return None
+    
+    def get_all_jobs(self) -> List[Dict[str, Any]]:
+        """
+        Get all jobs
+        
+        Returns:
+            List of all jobs
+        """
+        return self.jobs_db["jobs"]
+    
+    def get_jobs_by_status(self, status: str) -> List[Dict[str, Any]]:
+        """
+        Get jobs by status
+        
+        Args:
+            status: Job status
+            
+        Returns:
+            List of jobs with the specified status
+        """
+        return [job for job in self.jobs_db["jobs"] if job.get("status") == status]
+    
+    def get_all_applications(self) -> List[Dict[str, Any]]:
+        """
+        Get all applications
+        
+        Returns:
+            List of all applications
+        """
+        return self.jobs_db["applications"]
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """
+        Get job and application statistics
+        
+        Returns:
+            Dictionary of statistics
+        """
+        stats = self.jobs_db.get("statistics", {}).copy()
+        
+        # Add additional statistics
+        stats["total_jobs"] = len(self.jobs_db["jobs"])
+        stats["new_jobs"] = len(self.get_jobs_by_status("new"))
+        stats["analyzed_jobs"] = len(self.get_jobs_by_status("analyzed"))
+        stats["applied_jobs"] = len(self.get_jobs_by_status("applied"))
+        
+        # Add today's statistics
+        today = datetime.now().strftime("%Y-%m-%d")
+        stats["applications_today"] = 0
+        
+        for app in self.jobs_db["applications"]:
+            app_date = app.get("date", "").split("T")[0]
+            if app_date == today:
+                stats["applications_today"] += 1
+        
+        return stats
 
 # Example usage
 async def main():
@@ -599,39 +690,33 @@ async def main():
         },
         "application": {
             "daily_application_limit": 10,
-            "application_cooldown_seconds": 3600,
-            "human_approval_required": True,
-            "auto_submit": False
+            "application_cooldown_seconds": 3600
         },
         "job_boards": {
             "linkedin": {
                 "enabled": True
-            },
-            "indeed": {
-                "enabled": True
             }
-        },
-        "data_dir": "data"
+        }
     }
     
     # Initialize orchestrator
     orchestrator = AIJobOrchestrator(config)
     await orchestrator.initialize()
     
-    # Run a job search cycle
+    # Sample search parameters
     search_params = {
-        "keywords": "Software Engineer",
+        "keywords": "Python Developer",
         "location": "Remote",
         "remote_only": True
     }
     
-    resume_path = "resume/data/resume.json"
+    # Run job search cycle
+    result = await orchestrator.run_job_search_cycle(
+        search_params,
+        "resume/data/resume.json",
+        {"name": "Test User"}  # Sample resume data
+    )
     
-    # Load resume data
-    with open(resume_path, 'r') as f:
-        resume_data = json.load(f)
-    
-    result = await orchestrator.run_job_search_cycle(search_params, resume_path, resume_data)
     print(f"Job search cycle result: {result}")
 
 if __name__ == "__main__":
