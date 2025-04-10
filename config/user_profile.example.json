@@ -1,0 +1,166 @@
+{
+  "basic_info": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "(123) 456-7890",
+    "location": "San Francisco, CA",
+    "linkedin": "https://linkedin.com/in/johndoe",
+    "github": "https://github.com/johndoe",
+    "portfolio": "https://johndoe.dev"
+  },
+  "professional_summary": "Senior Software Engineer with 8+ years of experience developing web applications using Python, JavaScript, and cloud technologies. Passionate about building scalable, maintainable software and mentoring junior developers.",
+  "skills": {
+    "technical": [
+      "Python",
+      "JavaScript",
+      "TypeScript",
+      "React",
+      "Node.js",
+      "Django",
+      "Flask",
+      "AWS",
+      "Docker",
+      "Kubernetes",
+      "SQL",
+      "NoSQL",
+      "Git",
+      "CI/CD",
+      "Microservices"
+    ],
+    "soft": [
+      "Team Leadership",
+      "Agile Methodologies",
+      "Technical Writing",
+      "Problem Solving",
+      "Communication",
+      "Mentoring"
+    ],
+    "languages": [
+      {
+        "name": "English",
+        "proficiency": "Native"
+      },
+      {
+        "name": "Spanish",
+        "proficiency": "Conversational"
+      }
+    ],
+    "certifications": [
+      {
+        "name": "AWS Certified Solutions Architect",
+        "issuer": "Amazon Web Services",
+        "date": "2023-05",
+        "expires": "2026-05"
+      },
+      {
+        "name": "Certified Scrum Master",
+        "issuer": "Scrum Alliance",
+        "date": "2022-03",
+        "expires": "2024-03"
+      }
+    ]
+  },
+  "experience": [
+    {
+      "title": "Senior Software Engineer",
+      "company": "Tech Innovations Inc.",
+      "location": "San Francisco, CA",
+      "start_date": "2020-06",
+      "end_date": "Present",
+      "description": "Lead a team of 5 engineers in developing and maintaining a cloud-based SaaS platform used by 50,000+ customers.",
+      "achievements": [
+        "Redesigned microservice architecture reducing infrastructure costs by 35%",
+        "Implemented CI/CD pipeline decreasing deployment time by 75%",
+        "Led migration from monolith to microservices architecture",
+        "Mentored junior developers through knowledge sharing sessions"
+      ],
+      "technologies": [
+        "Python", "Django", "React", "AWS", "Docker", "Kubernetes", "PostgreSQL"
+      ]
+    },
+    {
+      "title": "Software Engineer",
+      "company": "DataSphere Solutions",
+      "location": "San Jose, CA",
+      "start_date": "2017-02",
+      "end_date": "2020-05",
+      "description": "Developed data processing pipelines and APIs for a financial technology platform.",
+      "achievements": [
+        "Built RESTful APIs serving 2M+ requests daily with 99.9% uptime",
+        "Optimized data processing pipeline reducing execution time by 60%",
+        "Created comprehensive test suite achieving 92% code coverage"
+      ],
+      "technologies": [
+        "Python", "Flask", "JavaScript", "MongoDB", "Redis", "AWS"
+      ]
+    },
+    {
+      "title": "Junior Developer",
+      "company": "WebSoft Systems",
+      "location": "San Francisco, CA",
+      "start_date": "2015-08",
+      "end_date": "2017-01",
+      "description": "Developed and maintained web applications for clients in various industries.",
+      "achievements": [
+        "Created responsive web applications for 10+ clients",
+        "Implemented automated testing reducing bug reports by 40%"
+      ],
+      "technologies": [
+        "JavaScript", "HTML", "CSS", "React", "Node.js", "MySQL"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Master of Science in Computer Science",
+      "institution": "Stanford University",
+      "location": "Stanford, CA",
+      "date": "2015",
+      "gpa": "3.8/4.0",
+      "courses": [
+        "Advanced Algorithms",
+        "Machine Learning",
+        "Distributed Systems",
+        "Database Systems"
+      ]
+    },
+    {
+      "degree": "Bachelor of Science in Computer Science",
+      "institution": "University of California, Berkeley",
+      "location": "Berkeley, CA",
+      "date": "2013",
+      "gpa": "3.7/4.0",
+      "courses": [
+        "Data Structures and Algorithms",
+        "Operating Systems",
+        "Software Engineering",
+        "Web Development"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "EcoTracker",
+      "description": "Open-source mobile application for tracking carbon footprint",
+      "url": "https://github.com/johndoe/ecotracker",
+      "technologies": ["React Native", "Node.js", "MongoDB", "AWS"]
+    },
+    {
+      "name": "Data Visualization Dashboard",
+      "description": "Interactive dashboard for visualizing complex datasets",
+      "url": "https://github.com/johndoe/dataviz-dashboard",
+      "technologies": ["D3.js", "React", "Python", "Flask"]
+    }
+  ],
+  "preferences": {
+    "job_types": ["Full-time", "Remote"],
+    "roles": ["Senior Software Engineer", "Lead Developer", "Full Stack Developer"],
+    "industries": ["Technology", "Finance", "Healthcare", "Education"],
+    "company_size": ["Startup", "Mid-size", "Enterprise"],
+    "min_salary": 120000,
+    "willing_to_relocate": false,
+    "max_commute_miles": 25
+  }
+}
